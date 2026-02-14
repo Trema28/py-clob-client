@@ -216,7 +216,12 @@ class RfqClient:
         }
         serialized_body = json.dumps(body, separators=(",", ":"), ensure_ascii=False)
         headers = self._get_l2_headers("POST", CREATE_RFQ_REQUEST, body, serialized_body)
-        return post(self._build_url(CREATE_RFQ_REQUEST), headers=headers, data=serialized_body)
+        return post(
+            self._parent._http_client,
+            self._build_url(CREATE_RFQ_REQUEST),
+            headers=headers,
+            data=serialized_body
+        )
 
     def cancel_rfq_request(self, params: CancelRfqRequestParams) -> str:
         """
@@ -233,7 +238,7 @@ class RfqClient:
         body = {"requestId": params.request_id}
         serialized_body = json.dumps(body, separators=(",", ":"), ensure_ascii=False)
         headers = self._get_l2_headers("DELETE", CANCEL_RFQ_REQUEST, body, serialized_body)
-        return delete(self._build_url(CANCEL_RFQ_REQUEST), headers=headers, data=serialized_body)
+        return delete(self._parent._http_client, self._build_url(CANCEL_RFQ_REQUEST), headers=headers, data=serialized_body)
 
     def get_rfq_requests(
         self, params: Optional[GetRfqRequestsParams] = None
@@ -259,7 +264,7 @@ class RfqClient:
             # requestIds=id1&requestIds=id2
             url = f"{url}?{urlencode(query_params, doseq=True)}"
 
-        return get(url, headers=headers)
+        return get(self._parent._http_client, url, headers=headers)
 
     # =========================================================================
     # Quote-side methods
@@ -373,7 +378,12 @@ class RfqClient:
         }
         serialized_body = json.dumps(body, separators=(",", ":"), ensure_ascii=False)
         headers = self._get_l2_headers("POST", CREATE_RFQ_QUOTE, body, serialized_body)
-        return post(self._build_url(CREATE_RFQ_QUOTE), headers=headers, data=serialized_body)
+        return post(
+            self._parent._http_client,
+            self._build_url(CREATE_RFQ_QUOTE),
+            headers=headers,
+            data=serialized_body
+        )
 
     def get_rfq_requester_quotes(self, params: Optional[GetRfqQuotesParams] = None) -> dict:
         """
@@ -397,7 +407,7 @@ class RfqClient:
         if query_params:
             url = f"{url}?{urlencode(query_params, doseq=True)}"
 
-        return get(url, headers=headers)
+        return get(self._parent._http_client, url, headers=headers)
 
     def get_rfq_quoter_quotes(self, params: Optional[GetRfqQuotesParams] = None) -> dict:
         """
@@ -421,7 +431,7 @@ class RfqClient:
         if query_params:
             url = f"{url}?{urlencode(query_params, doseq=True)}"
 
-        return get(url, headers=headers)
+        return get(self._parent._http_client, url, headers=headers)
 
     def get_rfq_best_quote(
         self, params: Optional[GetRfqBestQuoteParams] = None
@@ -443,7 +453,7 @@ class RfqClient:
         if params and params.request_id:
             url = f"{url}?{urlencode({'requestId': params.request_id})}"
 
-        return get(url, headers=headers)
+        return get(self._parent._http_client, url, headers=headers)
 
     def cancel_rfq_quote(self, params: CancelRfqQuoteParams) -> str:
         """
@@ -460,7 +470,7 @@ class RfqClient:
         body = {"quoteId": params.quote_id}
         serialized_body = json.dumps(body, separators=(",", ":"), ensure_ascii=False)
         headers = self._get_l2_headers("DELETE", CANCEL_RFQ_QUOTE, body, serialized_body)
-        return delete(self._build_url(CANCEL_RFQ_QUOTE), headers=headers, data=serialized_body)
+        return delete(self._parent._http_client, self._build_url(CANCEL_RFQ_QUOTE), headers=headers, data=serialized_body)
 
     # =========================================================================
     # Trade execution methods
@@ -542,6 +552,7 @@ class RfqClient:
         serialized_body = json.dumps(accept_payload, separators=(",", ":"), ensure_ascii=False)
         headers = self._get_l2_headers("POST", RFQ_REQUESTS_ACCEPT, accept_payload, serialized_body)
         return post(
+            self._parent._http_client,
             self._build_url(RFQ_REQUESTS_ACCEPT),
             headers=headers,
             data=serialized_body,
@@ -625,6 +636,7 @@ class RfqClient:
         serialized_body = json.dumps(approve_payload, separators=(",", ":"), ensure_ascii=False)
         headers = self._get_l2_headers("POST", RFQ_QUOTE_APPROVE, approve_payload, serialized_body)
         return post(
+            self._parent._http_client,
             self._build_url(RFQ_QUOTE_APPROVE),
             headers=headers,
             data=serialized_body,
@@ -644,7 +656,11 @@ class RfqClient:
         self._ensure_l2_auth()
 
         headers = self._get_l2_headers("GET", RFQ_CONFIG)
-        return get(self._build_url(RFQ_CONFIG), headers=headers)
+        return get(
+            self._parent._http_client,
+            self._build_url(RFQ_CONFIG),
+            headers=headers
+        )
 
     def _get_request_order_creation_payload(self, quote: dict) -> dict:
         """

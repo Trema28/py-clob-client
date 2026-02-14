@@ -16,7 +16,7 @@ POST = "POST"
 DELETE = "DELETE"
 PUT = "PUT"
 
-_http_client = httpx.Client(http2=True)
+# _http_client = httpx.Client(http2=True)
 
 
 def overloadHeaders(method: str, headers: dict) -> dict:
@@ -34,19 +34,19 @@ def overloadHeaders(method: str, headers: dict) -> dict:
     return headers
 
 
-def request(endpoint: str, method: str, headers=None, data=None):
+def request(client: httpx.Client, endpoint: str, method: str, headers=None, data=None):
     try:
         headers = overloadHeaders(method, headers)
         if isinstance(data, str):
             # Pre-serialized body: send exact bytes
-            resp = _http_client.request(
+            resp = client.request(
                 method=method,
                 url=endpoint,
                 headers=headers,
                 content=data.encode("utf-8"),
             )
         else:
-            resp = _http_client.request(
+            resp = client.request(
                 method=method,
                 url=endpoint,
                 headers=headers,
@@ -65,20 +65,20 @@ def request(endpoint: str, method: str, headers=None, data=None):
         raise PolyApiException(error_msg="Request exception!")
 
 
-def post(endpoint, headers=None, data=None):
-    return request(endpoint, POST, headers, data)
+def post(client, endpoint, headers=None, data=None):
+    return request(client, endpoint, POST, headers, data)
 
 
-def get(endpoint, headers=None, data=None):
-    return request(endpoint, GET, headers, data)
+def get(client, endpoint, headers=None, data=None):
+    return request(client, endpoint, GET, headers, data)
 
 
-def delete(endpoint, headers=None, data=None):
-    return request(endpoint, DELETE, headers, data)
+def delete(client, endpoint, headers=None, data=None):
+    return request(client, endpoint, DELETE, headers, data)
 
 
-def put(endpoint, headers=None, data=None):
-    return request(endpoint, PUT, headers, data)
+def put(client, endpoint, headers=None, data=None):
+    return request(client, endpoint, PUT, headers, data)
 
 
 def build_query_params(url: str, param: str, val: str) -> str:

@@ -2,6 +2,8 @@ import logging
 import json
 from typing import Optional
 
+import httpx
+
 from py_builder_signing_sdk.config import BuilderConfig
 
 from .order_builder.builder import OrderBuilder
@@ -122,6 +124,7 @@ class ClobClient:
         signature_type: int = None,
         funder: str = None,
         builder_config: BuilderConfig = None,
+        proxies: dict = None,
     ):
         """
         Initializes the clob client
@@ -149,6 +152,8 @@ class ClobClient:
         self.builder_config = None
         if builder_config:
             self.builder_config = builder_config
+
+        self._http_client = httpx.Client(http2=True, proxies=proxies)
 
         # local cache
         self.__tick_sizes = {}
@@ -195,14 +200,14 @@ class ClobClient:
         Health check: Confirms that the server is up
         Does not need authentication
         """
-        return get("{}/".format(self.host))
+        return get(self._http_client, "{}/".format(self.host))
 
     def get_server_time(self):
         """
         Returns the current timestamp on the server
         Does not need authentication
         """
-        return get("{}{}".format(self.host, TIME))
+        return get(self._http_client, "{}{}".format(self.host, TIME))
 
     def create_api_key(self, nonce: int = None) -> ApiCreds:
         """
@@ -213,7 +218,7 @@ class ClobClient:
         endpoint = "{}{}".format(self.host, CREATE_API_KEY)
         headers = create_level_1_headers(self.signer, nonce)
 
-        creds_raw = post(endpoint, headers=headers)
+        creds_raw = post(self._http_client, endpoint, headers=headers)
         try:
             creds = ApiCreds(
                 api_key=creds_raw["apiKey"],
@@ -234,7 +239,7 @@ class ClobClient:
         endpoint = "{}{}".format(self.host, DERIVE_API_KEY)
         headers = create_level_1_headers(self.signer, nonce)
 
-        creds_raw = get(endpoint, headers=headers)
+        creds_raw = get(self._http_client, endpoint, headers=headers)
         try:
             creds = ApiCreds(
                 api_key=creds_raw["apiKey"],
@@ -271,7 +276,7 @@ class ClobClient:
 
         request_args = RequestArgs(method="GET", request_path=GET_API_KEYS)
         headers = create_level_2_headers(self.signer, self.creds, request_args)
-        return get("{}{}".format(self.host, GET_API_KEYS), headers=headers)
+        return get(self._http_client, "{}{}".format(self.host, GET_API_KEYS), headers=headers)
 
     def get_closed_only_mode(self):
         """
@@ -282,7 +287,7 @@ class ClobClient:
 
         request_args = RequestArgs(method="GET", request_path=CLOSED_ONLY)
         headers = create_level_2_headers(self.signer, self.creds, request_args)
-        return get("{}{}".format(self.host, CLOSED_ONLY), headers=headers)
+        return get(self._http_client, "{}{}".format(self.host, CLOSED_ONLY), headers=headers)
 
     def delete_api_key(self):
         """
@@ -293,7 +298,7 @@ class ClobClient:
 
         request_args = RequestArgs(method="DELETE", request_path=DELETE_API_KEY)
         headers = create_level_2_headers(self.signer, self.creds, request_args)
-        return delete("{}{}".format(self.host, DELETE_API_KEY), headers=headers)
+        return delete(self._http_client, "{}{}".format(self.host, DELETE_API_KEY), headers=headers)
 
     def create_readonly_api_key(self) -> ReadonlyApiKeyResponse:
         """
@@ -305,7 +310,7 @@ class ClobClient:
         request_args = RequestArgs(method="POST", request_path=CREATE_READONLY_API_KEY)
         headers = create_level_2_headers(self.signer, self.creds, request_args)
 
-        response = post("{}{}".format(self.host, CREATE_READONLY_API_KEY), headers=headers)
+        response = post(self._http_client, "{}{}".format(self.host, CREATE_READONLY_API_KEY), headers=headers)
         try:
             return ReadonlyApiKeyResponse(api_key=response["apiKey"])
         except:
@@ -321,7 +326,7 @@ class ClobClient:
 
         request_args = RequestArgs(method="GET", request_path=GET_READONLY_API_KEYS)
         headers = create_level_2_headers(self.signer, self.creds, request_args)
-        return get("{}{}".format(self.host, GET_READONLY_API_KEYS), headers=headers)
+        return get(self._http_client, "{}{}".format(self.host, GET_READONLY_API_KEYS), headers=headers)
 
     def delete_readonly_api_key(self, key: str) -> bool:
         """
@@ -340,6 +345,7 @@ class ClobClient:
         )
         headers = create_level_2_headers(self.signer, self.creds, request_args)
         return delete(
+            self._http_client,
             "{}{}".format(self.host, DELETE_READONLY_API_KEY),
             headers=headers,
             data=serialized,
@@ -351,6 +357,7 @@ class ClobClient:
         This is a public endpoint, no authentication required
         """
         return get(
+            self._http_client,
             "{}{}?address={}&key={}".format(
                 self.host, VALIDATE_READONLY_API_KEY, address, key
             )
@@ -360,46 +367,46 @@ class ClobClient:
         """
         Get the mid market price for the given market
         """
-        return get("{}{}?token_id={}".format(self.host, MID_POINT, token_id))
+        return get(self._http_client, "{}{}?token_id={}".format(self.host, MID_POINT, token_id))
 
     def get_midpoints(self, params: list[BookParams]):
         """
         Get the mid market prices for a set of token ids
         """
         body = [{"token_id": param.token_id} for param in params]
-        return post("{}{}".format(self.host, MID_POINTS), data=body)
+        return post(self._http_client, "{}{}".format(self.host, MID_POINTS), data=body)
 
     def get_price(self, token_id, side):
         """
         Get the market price for the given market
         """
-        return get("{}{}?token_id={}&side={}".format(self.host, PRICE, token_id, side))
+        return get(self._http_client, "{}{}?token_id={}&side={}".format(self.host, PRICE, token_id, side))
 
     def get_prices(self, params: list[BookParams]):
         """
         Get the market prices for a set
         """
         body = [{"token_id": param.token_id, "side": param.side} for param in params]
-        return post("{}{}".format(self.host, GET_PRICES), data=body)
+        return post(self._http_client, "{}{}".format(self.host, GET_PRICES), data=body)
 
     def get_spread(self, token_id):
         """
         Get the spread for the given market
         """
-        return get("{}{}?token_id={}".format(self.host, GET_SPREAD, token_id))
+        return get(self._http_client, "{}{}?token_id={}".format(self.host, GET_SPREAD, token_id))
 
     def get_spreads(self, params: list[BookParams]):
         """
         Get the spreads for a set of token ids
         """
         body = [{"token_id": param.token_id} for param in params]
-        return post("{}{}".format(self.host, GET_SPREADS), data=body)
+        return post(self._http_client, "{}{}".format(self.host, GET_SPREADS), data=body)
 
     def get_tick_size(self, token_id: str) -> TickSize:
         if token_id in self.__tick_sizes:
             return self.__tick_sizes[token_id]
 
-        result = get("{}{}?token_id={}".format(self.host, GET_TICK_SIZE, token_id))
+        result = get(self._http_client, "{}{}?token_id={}".format(self.host, GET_TICK_SIZE, token_id))
         self.__tick_sizes[token_id] = str(result["minimum_tick_size"])
 
         return self.__tick_sizes[token_id]
@@ -408,7 +415,7 @@ class ClobClient:
         if token_id in self.__neg_risk:
             return self.__neg_risk[token_id]
 
-        result = get("{}{}?token_id={}".format(self.host, GET_NEG_RISK, token_id))
+        result = get(self._http_client, "{}{}?token_id={}".format(self.host, GET_NEG_RISK, token_id))
         self.__neg_risk[token_id] = result["neg_risk"]
 
         return result["neg_risk"]
@@ -417,7 +424,7 @@ class ClobClient:
         if token_id in self.__fee_rates:
             return self.__fee_rates[token_id]
 
-        result = get("{}{}?token_id={}".format(self.host, GET_FEE_RATE, token_id))
+        result = get(self._http_client, "{}{}?token_id={}".format(self.host, GET_FEE_RATE, token_id))
         fee_rate = result.get("base_fee") or 0
         self.__fee_rates[token_id] = fee_rate
 
@@ -575,12 +582,14 @@ class ClobClient:
             builder_headers = self._generate_builder_headers(request_args, headers)
             if builder_headers is not None:
                 return post(
+                    self._http_client,
                     "{}{}".format(self.host, POST_ORDERS),
                     headers=builder_headers,
                     data=request_args.serialized_body,
                 )
         # send exact serialized bytes
         return post(
+            self._http_client,
             "{}{}".format(self.host, POST_ORDERS),
             headers=headers,
             data=request_args.serialized_body,
@@ -607,11 +616,13 @@ class ClobClient:
             builder_headers = self._generate_builder_headers(request_args, headers)
             if builder_headers is not None:
                 return post(
+                    self._http_client,
                     "{}{}".format(self.host, POST_ORDER),
                     headers=builder_headers,
                     data=request_args.serialized_body,
                 )
         return post(
+            self._http_client,
             "{}{}".format(self.host, POST_ORDER),
             headers=headers,
             data=request_args.serialized_body,
@@ -642,6 +653,7 @@ class ClobClient:
         )
         headers = create_level_2_headers(self.signer, self.creds, request_args)
         return delete(
+            self._http_client,
             "{}{}".format(self.host, CANCEL),
             headers=headers,
             data=request_args.serialized_body,
@@ -663,7 +675,10 @@ class ClobClient:
         )
         headers = create_level_2_headers(self.signer, self.creds, request_args)
         return delete(
-            "{}{}".format(self.host, CANCEL_ORDERS), headers=headers, data=serialized
+            self._http_client,
+            "{}{}".format(self.host, CANCEL_ORDERS),
+            headers=headers,
+            data=serialized
         )
 
     def cancel_all(self):
@@ -674,7 +689,7 @@ class ClobClient:
         self.assert_level_2_auth()
         request_args = RequestArgs(method="DELETE", request_path=CANCEL_ALL)
         headers = create_level_2_headers(self.signer, self.creds, request_args)
-        return delete("{}{}".format(self.host, CANCEL_ALL), headers=headers)
+        return delete(self._http_client, "{}{}".format(self.host, CANCEL_ALL), headers=headers)
 
     def post_heartbeat(self, heartbeat_id: Optional[str]):
         """
@@ -687,6 +702,7 @@ class ClobClient:
         request_args = RequestArgs(method="POST", request_path=POST_HEARTBEAT, body=body, serialized_body=serialized)
         headers = create_level_2_headers(self.signer, self.creds, request_args)
         return post(
+            self._http_client,
             "{}{}".format(self.host, POST_HEARTBEAT),
             headers=headers,
             data=serialized
@@ -708,6 +724,7 @@ class ClobClient:
         )
         headers = create_level_2_headers(self.signer, self.creds, request_args)
         return delete(
+            self._http_client,
             "{}{}".format(self.host, CANCEL_MARKET_ORDERS),
             headers=headers,
             data=serialized,
@@ -728,7 +745,7 @@ class ClobClient:
             url = add_query_open_orders_params(
                 "{}{}".format(self.host, ORDERS), params, next_cursor
             )
-            response = get(url, headers=headers)
+            response = get(self._http_client, url, headers=headers)
             next_cursor = response["next_cursor"]
             results += response["data"]
 
@@ -738,7 +755,7 @@ class ClobClient:
         """
         Fetches the orderbook for the token_id
         """
-        raw_obs = get("{}{}?token_id={}".format(self.host, GET_ORDER_BOOK, token_id))
+        raw_obs = get(self._http_client, "{}{}?token_id={}".format(self.host, GET_ORDER_BOOK, token_id))
         return parse_raw_orderbook_summary(raw_obs)
 
     def get_order_books(self, params: list[BookParams]) -> list[OrderBookSummary]:
@@ -746,7 +763,7 @@ class ClobClient:
         Fetches the orderbook for a set of token ids
         """
         body = [{"token_id": param.token_id} for param in params]
-        raw_obs = post("{}{}".format(self.host, GET_ORDER_BOOKS), data=body)
+        raw_obs = post(self._http_client, "{}{}".format(self.host, GET_ORDER_BOOKS), data=body)
         return [parse_raw_orderbook_summary(r) for r in raw_obs]
 
     def get_order_book_hash(self, orderbook: OrderBookSummary) -> str:
@@ -764,7 +781,7 @@ class ClobClient:
         endpoint = "{}{}".format(GET_ORDER, order_id)
         request_args = RequestArgs(method="GET", request_path=endpoint)
         headers = create_level_2_headers(self.signer, self.creds, request_args)
-        return get("{}{}".format(self.host, endpoint), headers=headers)
+        return get(self._http_client, "{}{}".format(self.host, endpoint), headers=headers)
 
     def get_trades(self, params: TradeParams = None, next_cursor="MA=="):
         """
@@ -781,7 +798,7 @@ class ClobClient:
             url = add_query_trade_params(
                 "{}{}".format(self.host, TRADES), params, next_cursor
             )
-            response = get(url, headers=headers)
+            response = get(self._http_client, url, headers=headers)
             next_cursor = response["next_cursor"]
             results += response["data"]
 
@@ -791,14 +808,14 @@ class ClobClient:
         """
         Fetches the last trade price token_id
         """
-        return get("{}{}?token_id={}".format(self.host, GET_LAST_TRADE_PRICE, token_id))
+        return get(self._http_client, "{}{}?token_id={}".format(self.host, GET_LAST_TRADE_PRICE, token_id))
 
     def get_last_trades_prices(self, params: list[BookParams]):
         """
         Fetches the last trades prices for a set of token ids
         """
         body = [{"token_id": param.token_id} for param in params]
-        return post("{}{}".format(self.host, GET_LAST_TRADES_PRICES), data=body)
+        return post(self._http_client, "{}{}".format(self.host, GET_LAST_TRADES_PRICES), data=body)
 
     def assert_level_1_auth(self):
         """
@@ -874,7 +891,7 @@ class ClobClient:
         url = "{}{}?signature_type={}".format(
             self.host, GET_NOTIFICATIONS, self.builder.sig_type
         )
-        return get(url, headers=headers)
+        return get(self._http_client, url, headers=headers)
 
     def drop_notifications(self, params: DropNotificationParams = None):
         """
@@ -887,7 +904,7 @@ class ClobClient:
         url = drop_notifications_query_params(
             "{}{}".format(self.host, DROP_NOTIFICATIONS), params
         )
-        return delete(url, headers=headers)
+        return delete(self._http_client, url, headers=headers)
 
     def get_balance_allowance(self, params: BalanceAllowanceParams = None):
         """
@@ -902,7 +919,7 @@ class ClobClient:
         url = add_balance_allowance_params_to_url(
             "{}{}".format(self.host, GET_BALANCE_ALLOWANCE), params
         )
-        return get(url, headers=headers)
+        return get(self._http_client, url, headers=headers)
 
     def update_balance_allowance(self, params: BalanceAllowanceParams = None):
         """
@@ -917,7 +934,7 @@ class ClobClient:
         url = add_balance_allowance_params_to_url(
             "{}{}".format(self.host, UPDATE_BALANCE_ALLOWANCE), params
         )
-        return get(url, headers=headers)
+        return get(self._http_client, url, headers=headers)
 
     def is_order_scoring(self, params: OrderScoringParams):
         """
@@ -930,7 +947,7 @@ class ClobClient:
         url = add_order_scoring_params_to_url(
             "{}{}".format(self.host, IS_ORDER_SCORING), params
         )
-        return get(url, headers=headers)
+        return get(self._http_client, url, headers=headers)
 
     def are_orders_scoring(self, params: OrdersScoringParams):
         """
@@ -948,6 +965,7 @@ class ClobClient:
         )
         headers = create_level_2_headers(self.signer, self.creds, request_args)
         return post(
+            self._http_client,
             "{}{}".format(self.host, ARE_ORDERS_SCORING),
             headers=headers,
             data=serialized,
@@ -958,6 +976,7 @@ class ClobClient:
         Get the current sampling markets
         """
         return get(
+            self._http_client,
             "{}{}?next_cursor={}".format(self.host, GET_SAMPLING_MARKETS, next_cursor)
         )
 
@@ -966,6 +985,7 @@ class ClobClient:
         Get the current sampling simplified markets
         """
         return get(
+            self._http_client,
             "{}{}?next_cursor={}".format(
                 self.host, GET_SAMPLING_SIMPLIFIED_MARKETS, next_cursor
             )
@@ -975,13 +995,17 @@ class ClobClient:
         """
         Get the current markets
         """
-        return get("{}{}?next_cursor={}".format(self.host, GET_MARKETS, next_cursor))
+        return get(
+            self._http_client,
+            "{}{}?next_cursor={}".format(self.host, GET_MARKETS, next_cursor)
+        )
 
     def get_simplified_markets(self, next_cursor="MA=="):
         """
         Get the current simplified markets
         """
         return get(
+            self._http_client,
             "{}{}?next_cursor={}".format(self.host, GET_SIMPLIFIED_MARKETS, next_cursor)
         )
 
@@ -989,13 +1013,13 @@ class ClobClient:
         """
         Get a market by condition_id
         """
-        return get("{}{}{}".format(self.host, GET_MARKET, condition_id))
+        return get(self._http_client, "{}{}{}".format(self.host, GET_MARKET, condition_id))
 
     def get_market_trades_events(self, condition_id):
         """
         Get the market's trades events by condition id
         """
-        return get("{}{}{}".format(self.host, GET_MARKET_TRADES_EVENTS, condition_id))
+        return get(self._http_client, "{}{}{}".format(self.host, GET_MARKET_TRADES_EVENTS, condition_id))
 
     def get_builder_trades(self, params: TradeParams = None, next_cursor="MA=="):
         """
@@ -1014,7 +1038,7 @@ class ClobClient:
             url = add_query_trade_params(
                 "{}{}".format(self.host, GET_BUILDER_TRADES), params, next_cursor
             )
-            response = get(url, headers=headers)
+            response = get(self._http_client, url, headers=headers)
             next_cursor = response["next_cursor"]
             results += response["data"]
 
