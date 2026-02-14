@@ -124,7 +124,7 @@ class ClobClient:
         signature_type: int = None,
         funder: str = None,
         builder_config: BuilderConfig = None,
-        proxies: dict = None,
+        proxy: dict = None,
     ):
         """
         Initializes the clob client
@@ -153,7 +153,10 @@ class ClobClient:
         if builder_config:
             self.builder_config = builder_config
 
-        self._http_client = httpx.Client(http2=True, proxies=proxies)
+        transport = httpx.HTTPTransport(
+            proxy=proxy
+        )
+        self._http_client = httpx.Client(http2=True, transport=transport)
 
         # local cache
         self.__tick_sizes = {}
